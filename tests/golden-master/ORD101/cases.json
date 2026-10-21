@@ -1,0 +1,618 @@
+[
+  {
+    "id": "GM-VAT-01",
+    "rules": ["R17", "R19"],
+    "source": "RPGUnit vat300.test.sqlrpgle line 39",
+    "description": "GetVATRate returns 20.00 for a found, active code.",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "1", "VATRATE": "20.00", "VATDESC": "Valid Rate", "VATDEL": ""},
+        {"VATCODE": "3", "VATRATE": "10.00", "VATDESC": "Deleted Rate", "VATDEL": "X"}
+      ],
+      "note": "Test fixture: only codes '1' and '3' loaded by setUpSuite; code '2' is absent."
+    },
+    "user_input": {
+      "procedure": "GetVATRate",
+      "P_VATCODE": "1"
+    },
+    "expected": {
+      "return_value": "20.00"
+    },
+    "derivation": "chainVATDEF('1') finds the record; VATRATE field = 20.00. Returned directly."
+  },
+  {
+    "id": "GM-VAT-02",
+    "rules": ["R17", "R19", "Q3"],
+    "source": "RPGUnit vat300.test.sqlrpgle line 41",
+    "description": "GetVATRate returns the stored rate even for a deleted (VATDEL='X') code.",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "1", "VATRATE": "20.00", "VATDESC": "Valid Rate", "VATDEL": ""},
+        {"VATCODE": "3", "VATRATE": "10.00", "VATDESC": "Deleted Rate", "VATDEL": "X"}
+      ],
+      "note": "Test fixture: only codes '1' and '3'. VATDEL is not checked by chainVATDEF or GetVATRate."
+    },
+    "user_input": {
+      "procedure": "GetVATRate",
+      "P_VATCODE": "3"
+    },
+    "expected": {
+      "return_value": "10.00"
+    },
+    "derivation": "chainVATDEF('3') finds the record (CHAIN hits, %found = true). VATDEL is never inspected by GetVATRate. VATRATE = 10.00 is returned as-is."
+  },
+  {
+    "id": "GM-VAT-03",
+    "rules": ["R17", "R18", "R19"],
+    "source": "RPGUnit vat300.test.sqlrpgle line 40 (GetVATRate for missing code)",
+    "description": "GetVATRate returns 0.00 for an unknown code (not in test fixture).",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "1", "VATRATE": "20.00", "VATDESC": "Valid Rate", "VATDEL": ""},
+        {"VATCODE": "3", "VATRATE": "10.00", "VATDESC": "Deleted Rate", "VATDEL": "X"}
+      ],
+      "note": "Code '2' is NOT in the test fixture."
+    },
+    "user_input": {
+      "procedure": "GetVATRate",
+      "P_VATCODE": "2"
+    },
+    "expected": {
+      "return_value": "0.00"
+    },
+    "derivation": "chainVATDEF('2'): CHAIN on VATDEF with key '2' sets %found = false. 'clear *all FVAT' before the CHAIN zeroed VATRATE. Returned VATRATE = 0.00."
+  },
+  {
+    "id": "GM-VAT-04",
+    "rules": ["R17", "R18", "R20"],
+    "source": "RPGUnit vat300.test.sqlrpgle line 57",
+    "description": "ClcVAT('1', 200.00) = 40.00 — standard active code.",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "1", "VATRATE": "20.00", "VATDESC": "Valid Rate", "VATDEL": ""},
+        {"VATCODE": "3", "VATRATE": "10.00", "VATDESC": "Deleted Rate", "VATDEL": "X"}
+      ]
+    },
+    "user_input": {
+      "procedure": "ClcVAT",
+      "P_VATCODE": "1",
+      "Net": "200.00"
+    },
+    "expected": {
+      "return_value": "40.00"
+    },
+    "derivation": "chainVATDEF('1') → VATRATE = 20.00. tot (Packed 11:4) = (200.00 × 20.00) / 100 = 4000.00 / 100 = 40.0000. %dech(40.0000 : 9 : 2) = 40.00."
+  },
+  {
+    "id": "GM-VAT-05",
+    "rules": ["R17", "R18", "R20", "Q2"],
+    "source": "RPGUnit vat300.test.sqlrpgle line 58",
+    "description": "ClcVAT('2', 200.00) = 0.00 — code absent from test fixture, silent zero.",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "1", "VATRATE": "20.00", "VATDESC": "Valid Rate", "VATDEL": ""},
+        {"VATCODE": "3", "VATRATE": "10.00", "VATDESC": "Deleted Rate", "VATDEL": "X"}
+      ],
+      "note": "Code '2' is absent. The seed VATDEF does contain code '2' at rate 7.70 — this case uses the test fixture only."
+    },
+    "user_input": {
+      "procedure": "ClcVAT",
+      "P_VATCODE": "2",
+      "Net": "200.00"
+    },
+    "expected": {
+      "return_value": "0.00"
+    },
+    "derivation": "chainVATDEF('2'): 'clear *all FVAT' sets VATRATE = 0.00; CHAIN fails (%found = false). tot = (200.00 × 0.00) / 100 = 0.0000. %dech = 0.00."
+  },
+  {
+    "id": "GM-VAT-06",
+    "rules": ["R17", "R18", "R20", "Q3"],
+    "source": "RPGUnit vat300.test.sqlrpgle line 59",
+    "description": "ClcVAT('3', 200.00) = 20.00 — deleted code still returns its stored rate.",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "1", "VATRATE": "20.00", "VATDESC": "Valid Rate", "VATDEL": ""},
+        {"VATCODE": "3", "VATRATE": "10.00", "VATDESC": "Deleted Rate", "VATDEL": "X"}
+      ]
+    },
+    "user_input": {
+      "procedure": "ClcVAT",
+      "P_VATCODE": "3",
+      "Net": "200.00"
+    },
+    "expected": {
+      "return_value": "20.00"
+    },
+    "derivation": "chainVATDEF('3') finds the record (%found = true). VATDEL = 'X' is not checked by ClcVAT. VATRATE = 10.00. tot = (200.00 × 10.00) / 100 = 2000.00 / 100 = 20.0000. %dech = 20.00."
+  },
+  {
+    "id": "GM-01",
+    "rules": ["R1"],
+    "description": "Startup: program chains ORDER1 by the passed order id and loads customer name.",
+    "fixture": {
+      "order": {"ORID": 60716, "ORYEAR": 2026, "ORCUID": 1001, "ORDATE": 20260511, "ORDATDEL": 0, "ORDATCLO": 0},
+      "customer": {"CUID": 1001, "CUSTNM": "Demo Retail One"}
+    },
+    "user_input": {
+      "id": 60716
+    },
+    "expected": {
+      "CUSTNAME": "Demo Retail One"
+    },
+    "derivation": "*inzsr: chain 60716 ORDER1 → ORCUID = 1001. GetCusName(1001) → 'Demo Retail One'. Displayed on both panel 1 and FMT02."
+  },
+  {
+    "id": "GM-02",
+    "rules": ["R2", "R3"],
+    "description": "Subfile load: all four lines of order 60716 are loaded, running totals accumulated.",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "1", "VATRATE": "20.00", "VATDESC": "Standard rate", "VATDEL": ""},
+        {"VATCODE": "2", "VATRATE": "7.70",  "VATDESC": "Reduced rate",  "VATDEL": ""}
+      ],
+      "order": {"ORID": 60716, "ORYEAR": 2026, "ORCUID": 1001},
+      "detord": [
+        {"ODORID": 60716, "ODLINE": 1, "ODARID": "000006", "ODQTY": 1, "ODQTYLIV": 0, "ODPRICE": "12.35", "ODTOT": "12.35",  "ODTOTVAT": "12.35"},
+        {"ODORID": 60716, "ODLINE": 2, "ODARID": "000003", "ODQTY": 0, "ODQTYLIV": 0, "ODPRICE":  "9.90", "ODTOT":  "0.00", "ODTOTVAT":  "0.00"},
+        {"ODORID": 60716, "ODLINE": 3, "ODARID": "000001", "ODQTY": 7, "ODQTYLIV": 0, "ODPRICE": "18.00", "ODTOT": "126.00", "ODTOTVAT": "126.00"},
+        {"ODORID": 60716, "ODLINE": 4, "ODARID": "000007", "ODQTY": 25,"ODQTYLIV": 0, "ODPRICE":  "3.99", "ODTOT":  "99.75", "ODTOTVAT":  "99.75"}
+      ],
+      "article": [
+        {"ARID": "000001", "ARDESC": "Ballpoint pen, blue, box of 50"},
+        {"ARID": "000003", "ARDESC": "Desk stapler"},
+        {"ARID": "000006", "ARDESC": "Pocket cookbook"},
+        {"ARID": "000007", "ARDESC": "Garden gloves, size M"}
+      ]
+    },
+    "user_input": {"id": 60716},
+    "expected": {
+      "subfile_rows": [
+        {"rrn": 1, "ODLINE": 1, "ODARID": "000006", "ARTDESC": "Pocket cookbook",              "ODQTY": 1,  "ODPRICE": "12.35", "ODTOT": "12.35"},
+        {"rrn": 2, "ODLINE": 2, "ODARID": "000003", "ARTDESC": "Desk stapler",                 "ODQTY": 0,  "ODPRICE":  "9.90", "ODTOT":  "0.00"},
+        {"rrn": 3, "ODLINE": 3, "ODARID": "000001", "ARTDESC": "Ballpoint pen, blue, box of 50","ODQTY": 7,  "ODPRICE": "18.00", "ODTOT": "126.00"},
+        {"rrn": 4, "ODLINE": 4, "ODARID": "000007", "ARTDESC": "Garden gloves, size M",        "ODQTY": 25, "ODPRICE":  "3.99", "ODTOT":  "99.75"}
+      ],
+      "TOT":    "238.10",
+      "TOTVAT": "238.10"
+    },
+    "derivation": "s01prp: TOT = 0, TOTVAT = 0. s01lod: SETLL 60716 DETORD1, READE four records. TOT = 12.35 + 0.00 + 126.00 + 99.75 = 238.10. TOTVAT = 12.35 + 0.00 + 126.00 + 99.75 = 238.10 (stored ODTOTVAT used as-is; seed lines have ODTOTVAT = ODTOT). ODQTYLIV and ODTOTVAT are hidden subfile columns (type H in DSPF)."
+  },
+  {
+    "id": "GM-03",
+    "rules": ["R4"],
+    "description": "Invalid option (e.g. 5) on a subfile row: reverse image set on that row, 'Invalid Option' message shown.",
+    "fixture": {
+      "order": {"ORID": 60716, "ORYEAR": 2026, "ORCUID": 1001},
+      "detord": [
+        {"ODORID": 60716, "ODLINE": 1, "ODARID": "000006", "ODQTY": 1, "ODQTYLIV": 0, "ODPRICE": "12.35", "ODTOT": "12.35", "ODTOTVAT": "12.35"}
+      ]
+    },
+    "user_input": {
+      "panel": 1,
+      "subfile_changes": [
+        {"rrn": 1, "opt01": 5}
+      ]
+    },
+    "expected": {
+      "step01_after_chk": "dsp",
+      "subfile_rows": [
+        {"rrn": 1, "dspatr_ri": true}
+      ],
+      "indicators": {
+        "sflmsg": true,
+        "sflmsg2": false
+      },
+      "message_shown": "Invalid Option"
+    },
+    "derivation": "s01chk: READC returns rrn=1, opt01=5. 5 ≠ 0, 2, 4, 6 → step01 = dsp, dspatr_ri = *on, sflmsg = *on. UPDATE sfl01 writes the row with reverse image. dspatr_ri = *off for next row."
+  },
+  {
+    "id": "GM-04",
+    "rules": ["R5"],
+    "description": "Option 4 (delete) rejected because ODQTYLIV > 0: reverse image + delivery-block message.",
+    "fixture": {
+      "order": {"ORID": 60715, "ORYEAR": 2026, "ORCUID": 1002},
+      "detord": [
+        {"ODORID": 60715, "ODLINE": 1, "ODARID": "000001", "ODQTY": 20, "ODQTYLIV": 8, "ODPRICE": "18.00", "ODTOT": "360.00", "ODTOTVAT": "360.00"}
+      ]
+    },
+    "user_input": {
+      "panel": 1,
+      "subfile_changes": [
+        {"rrn": 1, "opt01": 4}
+      ]
+    },
+    "expected": {
+      "step01_after_chk": "dsp",
+      "subfile_rows": [
+        {"rrn": 1, "dspatr_ri": true}
+      ],
+      "indicators": {
+        "sflmsg2": true,
+        "sflmsg": false
+      },
+      "message_shown": "Line with delivery can not be deleted.",
+      "records_updated": []
+    },
+    "derivation": "s01chk: READC returns rrn=1, opt01=4, ODQTYLIV=8 > 0 → step01 = dsp, dspatr_ri = *on, sflmsg2 = *on. The first condition (opt01 not in {0,2,4,6}) is false (4 is valid), so sflmsg stays off. No DELETE issued."
+  },
+  {
+    "id": "GM-05",
+    "rules": ["R6", "Q7"],
+    "description": "Option 6 is accepted as valid (no 'Invalid Option') but performs no action.",
+    "fixture": {
+      "order": {"ORID": 60716, "ORYEAR": 2026, "ORCUID": 1001},
+      "detord": [
+        {"ODORID": 60716, "ODLINE": 3, "ODARID": "000001", "ODQTY": 7, "ODQTYLIV": 0, "ODPRICE": "18.00", "ODTOT": "126.00", "ODTOTVAT": "126.00"}
+      ]
+    },
+    "user_input": {
+      "panel": 1,
+      "subfile_changes": [
+        {"rrn": 1, "opt01": 6}
+      ]
+    },
+    "expected": {
+      "step01_after_chk": "act",
+      "indicators": {
+        "sflmsg":  false,
+        "sflmsg2": false,
+        "dspatr_ri": false
+      },
+      "records_updated": [],
+      "records_deleted": [],
+      "note": "s01act: READC gives opt01=6; no 'when opt01=6' branch exists in s01act's select. Falls through to endsl; no operation performed. The row is unchanged."
+    },
+    "derivation": "s01chk: opt01=6 is in {0,2,4,6} → no error. ODQTYLIV=0 so delivery-block also skipped. step01 = act. s01act: select has when %error/%eof, when opt01=2, when opt01=4 — no when opt01=6. Falls through, step01 stays act, no further processing."
+  },
+  {
+    "id": "GM-06",
+    "rules": ["R7"],
+    "description": "Option 4 deletes a line with no delivery: DETORD1 record deleted, TOT and TOTVAT decremented, subfile row blanked.",
+    "fixture": {
+      "order": {"ORID": 60716, "ORYEAR": 2026, "ORCUID": 1001},
+      "detord": [
+        {"ODORID": 60716, "ODLINE": 3, "ODARID": "000001", "ODQTY": 7, "ODQTYLIV": 0, "ODPRICE": "18.00", "ODTOT": "126.00", "ODTOTVAT": "126.00"}
+      ],
+      "order_totals_before": {"TOT": "238.10", "TOTVAT": "238.10"}
+    },
+    "user_input": {
+      "panel": 1,
+      "subfile_changes": [
+        {"rrn": 3, "opt01": 4}
+      ]
+    },
+    "expected": {
+      "records_deleted": [
+        {"file": "DETORD1", "key": {"ODORID": 60716, "ODLINE": 3}}
+      ],
+      "TOT":    "112.10",
+      "TOTVAT": "112.10",
+      "subfile_row_after": {
+        "rrn": 3,
+        "opt01": 0,
+        "ODARID": "      ",
+        "ODQTY": 0,
+        "ODPRICE": "0.00",
+        "ODTOT": "0.00",
+        "ARTDESC": "**** Delete ***"
+      }
+    },
+    "derivation": "s01act: opt01=4. tot -= odtot: 238.10 - 126.00 = 112.10. totvat -= odtotvat: 238.10 - 126.00 = 112.10. DELETE (60716:3) DETORD1. opt01=0, odarid=' ', odqty=0, odprice=0, odtot=0, artdesc='**** Delete ***'. UPDATE sfl01."
+  },
+  {
+    "id": "GM-07",
+    "rules": ["R8", "R9"],
+    "description": "Detail screen (FMT02) load: fields copied from DETORD1, VAT recalculated on stored ODTOT for display.",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "2", "VATRATE": "7.70", "VATDESC": "Reduced rate", "VATDEL": ""}
+      ],
+      "order": {"ORID": 60716, "ORYEAR": 2026, "ORCUID": 1001},
+      "detord": [
+        {"ODORID": 60716, "ODLINE": 1, "ODARID": "000006", "ODQTY": 1, "ODQTYLIV": 0, "ODPRICE": "12.35", "ODTOT": "12.35", "ODTOTVAT": "12.35"}
+      ],
+      "article": [{"ARID": "000006", "ARDESC": "Pocket cookbook", "ARVATCD": "2"}]
+    },
+    "user_input": {
+      "panel": 1,
+      "subfile_changes": [{"rrn": 1, "opt01": 2}]
+    },
+    "expected": {
+      "FMT02_display": {
+        "DSQTY":    1,
+        "DSQTYLIV": 0,
+        "DSPRICE":  "12.35",
+        "ARTDESC":  "Pocket cookbook",
+        "vat_displayed":     "0.95",
+        "ODTOTVAT_displayed": "13.30",
+        "vatRate_displayed":  "7.70"
+      }
+    },
+    "derivation": "s02prp: chain (60716:1) DETORD1. DSQTY=1, DSQTYLIV=0, DSPRICE=12.35. GetArtVatCode('000006')='2'. vat = ClcVAT('2', 12.35): 12.35×7.70=95.095, /100=0.95095, Packed(11:4)=0.9509, %dech(0.9509:9:2)=0.95. odtotvat=12.35+0.95=13.30. vatRate=GetVatRate('2')=7.70. Values for display only; DETORD1 not written at this step."
+  },
+  {
+    "id": "GM-08",
+    "rules": ["R12", "R13", "R15", "R16"],
+    "description": "Save after editing: ODTOT recalculated, VAT recalculated, five fields written back to DETORD1.",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "2", "VATRATE": "7.70", "VATDESC": "Reduced rate", "VATDEL": ""}
+      ],
+      "order": {"ORID": 60716, "ORYEAR": 2026, "ORCUID": 1001},
+      "detord": [
+        {"ODORID": 60716, "ODLINE": 1, "ODARID": "000006", "ODQTY": 1, "ODQTYLIV": 0, "ODPRICE": "12.35", "ODTOT": "12.35", "ODTOTVAT": "12.35"}
+      ],
+      "article": [{"ARID": "000006", "ARVATCD": "2"}]
+    },
+    "user_input": {
+      "panel": 2,
+      "DSQTY":    2,
+      "DSQTYLIV": 0,
+      "DSPRICE":  "12.35",
+      "key": "Enter (normal, not CHANGE)"
+    },
+    "expected": {
+      "records_updated": [
+        {
+          "file":   "DETORD1",
+          "key":    {"ODORID": 60716, "ODLINE": 1},
+          "fields": {
+            "ODQTY":     2,
+            "ODQTYLIV":  0,
+            "ODPRICE":   "12.35",
+            "ODTOT":     "24.70",
+            "ODTOTVAT":  "26.60"
+          }
+        }
+      ],
+      "panel_after": 1
+    },
+    "derivation": "s02chk: DSQTYLIV(0)≤ODQTY(1) OK; DSQTY(2)≥ODQTYLIV(0) OK. ODTOT=DSQTY×DSPRICE=2×12.35=24.70 (Packed 9:2). VAT=ClcVAT('2',24.70): 24.70×7.70=190.19 (exact 2-dec), /100=1.9019 (Packed 11:4), %dech(1.9019:9:2)=1.90. ODTOTVAT=24.70+1.90=26.60. s02act: change=false → UPDATE fdeto. opt01=0, UPDATE sfl01, panel=1."
+  },
+  {
+    "id": "GM-09",
+    "rules": ["R10"],
+    "description": "ERR1001: DSQTYLIV entered > ODQTY stored at load time — screen redisplayed, no save.",
+    "fixture": {
+      "order": {"ORID": 60715, "ORYEAR": 2026, "ORCUID": 1002},
+      "detord": [
+        {"ODORID": 60715, "ODLINE": 3, "ODARID": "000005", "ODQTY": 3, "ODQTYLIV": 0, "ODPRICE": "24.00", "ODTOT": "72.00", "ODTOTVAT": "72.00"}
+      ]
+    },
+    "user_input": {
+      "panel": 2,
+      "DSQTY":    3,
+      "DSQTYLIV": 4,
+      "DSPRICE":  "24.00",
+      "key": "Enter"
+    },
+    "expected": {
+      "indicators": {
+        "ErrQtyLiv": true
+      },
+      "message_on_field": {"field": "DSQTY", "msgid": "ERR1001", "text": "Delivered quantity must be lower or equal to ordered quantity."},
+      "step02_after_chk": "dsp",
+      "records_updated": []
+    },
+    "derivation": "s02chk: DSQTYLIV(4) > ODQTY(3) stored at load time → errqtyliv = *on, step02 = dsp. ErrQty(*IN38) check: DSQTY(3) ≥ ODQTYLIV(0) → no error. Note Q5: ErrQtyLiv is never set *off, so ERR1001 persists on every subsequent visit to FMT02 for the same program run."
+  },
+  {
+    "id": "GM-10",
+    "rules": ["R11"],
+    "description": "ERR1002: DSQTY entered < ODQTYLIV stored at load time — screen redisplayed, no save.",
+    "fixture": {
+      "order": {"ORID": 60715, "ORYEAR": 2026, "ORCUID": 1002},
+      "detord": [
+        {"ODORID": 60715, "ODLINE": 1, "ODARID": "000001", "ODQTY": 20, "ODQTYLIV": 8, "ODPRICE": "18.00", "ODTOT": "360.00", "ODTOTVAT": "360.00"}
+      ]
+    },
+    "user_input": {
+      "panel": 2,
+      "DSQTY":    7,
+      "DSQTYLIV": 8,
+      "DSPRICE":  "18.00",
+      "key": "Enter"
+    },
+    "expected": {
+      "indicators": {
+        "ErrQty": true
+      },
+      "message_on_field": {"field": "DSQTY", "msgid": "ERR1002", "text": "Ordered quantity can not be lower than the quantity already delivered."},
+      "step02_after_chk": "dsp",
+      "records_updated": []
+    },
+    "derivation": "s02chk: DSQTYLIV(8) ≤ ODQTY(20) stored → no ERR1001. DSQTY(7) < ODQTYLIV(8) stored → errqty = *on, step02 = dsp. Note Q6: comparison is against ODQTY stored at load (20), not against the new DSQTY(7), so the ERR1001 gate (8 ≤ 20) passes even though the new quantities would be inconsistent."
+  },
+  {
+    "id": "GM-11",
+    "rules": ["R12", "R13", "Q1"],
+    "description": "Half-rounding quirk: intermediate Packed(11:4) = 0.3850; %dech rounds half-up to 0.39, not half-even 0.38.",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "2", "VATRATE": "7.70", "VATDESC": "Reduced rate", "VATDEL": ""}
+      ],
+      "order": {"ORID": 60720, "ORYEAR": 2026, "ORCUID": 1001,
+                "note": "Custom order added for this case; not in seed data."},
+      "detord": [
+        {"ODORID": 60720, "ODLINE": 1, "ODARID": "000006", "ODQTY": 1, "ODQTYLIV": 0,
+         "ODPRICE": "5.00", "ODTOT": "5.00", "ODTOTVAT": "5.00",
+         "note": "Custom line: price 5.00 chosen so net×rate/100 = 0.3850 exactly before rounding."}
+      ],
+      "article": [{"ARID": "000006", "ARVATCD": "2"}]
+    },
+    "user_input": {
+      "panel": 2,
+      "DSQTY":    1,
+      "DSQTYLIV": 0,
+      "DSPRICE":  "5.00",
+      "key": "Enter"
+    },
+    "expected": {
+      "ODTOT":    "5.00",
+      "vat":      "0.39",
+      "ODTOTVAT": "5.39",
+      "records_updated": [
+        {
+          "file": "DETORD1",
+          "key":  {"ODORID": 60720, "ODLINE": 1},
+          "fields": {"ODQTY": 1, "ODQTYLIV": 0, "ODPRICE": "5.00", "ODTOT": "5.00", "ODTOTVAT": "5.39"}
+        }
+      ]
+    },
+    "derivation": "R12: ODTOT = 1 × 5.00 = 5.00. R13: ClcVAT('2', 5.00): VATRATE=7.70. tot (Packed 11:4) = (5.00 × 7.70) / 100 = 38.50 / 100 = 0.38500; truncated to 4 decimals = 0.3850. %dech(0.3850 : 9 : 2): 3rd decimal = 5 → half-up rounds up the 2nd decimal: 0.38 → 0.39. Java BigDecimal.HALF_EVEN would give 0.38 (2nd decimal 8 is even). Any port must produce 0.39."
+  },
+  {
+    "id": "GM-12",
+    "rules": ["R20", "Q2"],
+    "description": "Unknown VAT code: ClcVAT silently returns 0.00, ODTOTVAT equals ODTOT with no error shown.",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "1", "VATRATE": "20.00", "VATDESC": "Standard rate", "VATDEL": ""},
+        {"VATCODE": "2", "VATRATE": "7.70",  "VATDESC": "Reduced rate",  "VATDEL": ""},
+        {"VATCODE": "3", "VATRATE": "10.00", "VATDESC": "Retired rate",  "VATDEL": "X"},
+        {"VATCODE": "4", "VATRATE": "0.00",  "VATDESC": "Zero rate",     "VATDEL": ""},
+        {"note": "Code '9' is intentionally absent from VATDEF."}
+      ],
+      "order": {"ORID": 60719, "ORYEAR": 2026, "ORCUID": 1002},
+      "detord": [
+        {"ODORID": 60719, "ODLINE": 2, "ODARID": "000009", "ODQTY": 10, "ODQTYLIV": 0, "ODPRICE": "1.25", "ODTOT": "12.50", "ODTOTVAT": "12.50"}
+      ],
+      "article": [{"ARID": "000009", "ARDESC": "Seed packet, mixed herbs", "ARVATCD": "9"}]
+    },
+    "user_input": {
+      "panel": 2,
+      "DSQTY":    10,
+      "DSQTYLIV": 0,
+      "DSPRICE":  "1.25",
+      "key": "Enter"
+    },
+    "expected": {
+      "ODTOT":    "12.50",
+      "vat":      "0.00",
+      "ODTOTVAT": "12.50",
+      "messages":  [],
+      "records_updated": [
+        {
+          "file": "DETORD1",
+          "key":  {"ODORID": 60719, "ODLINE": 2},
+          "fields": {"ODQTY": 10, "ODQTYLIV": 0, "ODPRICE": "1.25", "ODTOT": "12.50", "ODTOTVAT": "12.50"}
+        }
+      ]
+    },
+    "derivation": "ODTOT = 10 × 1.25 = 12.50. ClcVAT('9', 12.50): chainVATDEF('9') — 'clear *all FVAT' → VATRATE=0.00; CHAIN '9' VATDEF → %found=false; VATRATE stays 0.00. tot = (12.50 × 0.00) / 100 = 0.0000. VAT = 0.00. ODTOTVAT = 12.50 + 0.00 = 12.50. No error indicator set; ORD101 never calls ExistVATRate before ClcVAT."
+  },
+  {
+    "id": "GM-13",
+    "rules": ["R20", "Q3"],
+    "description": "Deleted VAT code: ClcVAT uses the stored rate (10.00%) regardless of VATDEL='X'.",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "1", "VATRATE": "20.00", "VATDESC": "Standard rate", "VATDEL": ""},
+        {"VATCODE": "2", "VATRATE": "7.70",  "VATDESC": "Reduced rate",  "VATDEL": ""},
+        {"VATCODE": "3", "VATRATE": "10.00", "VATDESC": "Retired rate",  "VATDEL": "X"},
+        {"VATCODE": "4", "VATRATE": "0.00",  "VATDESC": "Zero rate",     "VATDEL": ""}
+      ],
+      "order": {"ORID": 60719, "ORYEAR": 2026, "ORCUID": 1002},
+      "detord": [
+        {"ODORID": 60719, "ODLINE": 1, "ODARID": "000008", "ODQTY": 4, "ODQTYLIV": 0, "ODPRICE": "7.50", "ODTOT": "30.00", "ODTOTVAT": "30.00"}
+      ],
+      "article": [{"ARID": "000008", "ARDESC": "Plant pot, 20 cm", "ARVATCD": "3"}]
+    },
+    "user_input": {
+      "panel": 2,
+      "DSQTY":    4,
+      "DSQTYLIV": 0,
+      "DSPRICE":  "7.50",
+      "key": "Enter"
+    },
+    "expected": {
+      "ODTOT":    "30.00",
+      "vat":      "3.00",
+      "ODTOTVAT": "33.00",
+      "records_updated": [
+        {
+          "file": "DETORD1",
+          "key":  {"ODORID": 60719, "ODLINE": 1},
+          "fields": {"ODQTY": 4, "ODQTYLIV": 0, "ODPRICE": "7.50", "ODTOT": "30.00", "ODTOTVAT": "33.00"}
+        }
+      ]
+    },
+    "derivation": "ODTOT = 4 × 7.50 = 30.00. ClcVAT('3', 30.00): chainVATDEF('3') — CHAIN '3' VATDEF hits the record (%found=true); VATDEL='X' is NOT checked. VATRATE=10.00. tot = (30.00 × 10.00) / 100 = 300.00 / 100 = 3.0000 (Packed 11:4). %dech(3.0000:9:2) = 3.00. ODTOTVAT = 30.00 + 3.00 = 33.00. ExistVATRate('3') would return false, but ORD101 never calls it."
+  },
+  {
+    "id": "GM-14",
+    "rules": ["R12", "R13"],
+    "description": "Ordered quantity = 0: ODTOT = 0.00, VAT = 0.00, ODTOTVAT = 0.00.",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "1", "VATRATE": "20.00", "VATDESC": "Standard rate", "VATDEL": ""}
+      ],
+      "order": {"ORID": 60716, "ORYEAR": 2026, "ORCUID": 1001},
+      "detord": [
+        {"ODORID": 60716, "ODLINE": 2, "ODARID": "000003", "ODQTY": 0, "ODQTYLIV": 0, "ODPRICE": "9.90", "ODTOT": "0.00", "ODTOTVAT": "0.00"}
+      ],
+      "article": [{"ARID": "000003", "ARVATCD": "1"}]
+    },
+    "user_input": {
+      "panel": 2,
+      "DSQTY":    0,
+      "DSQTYLIV": 0,
+      "DSPRICE":  "9.90",
+      "key": "Enter"
+    },
+    "expected": {
+      "ODTOT":    "0.00",
+      "vat":      "0.00",
+      "ODTOTVAT": "0.00",
+      "records_updated": [
+        {
+          "file": "DETORD1",
+          "key":  {"ODORID": 60716, "ODLINE": 2},
+          "fields": {"ODQTY": 0, "ODQTYLIV": 0, "ODPRICE": "9.90", "ODTOT": "0.00", "ODTOTVAT": "0.00"}
+        }
+      ]
+    },
+    "derivation": "R12: ODTOT = 0 × 9.90 = 0.00. R13: ClcVAT('1', 0.00): VATRATE=20.00. tot = (0.00 × 20.00) / 100 = 0.0000. VAT = 0.00. ODTOTVAT = 0.00 + 0.00 = 0.00."
+  },
+  {
+    "id": "GM-15",
+    "rules": ["R10", "R11"],
+    "description": "Delivered quantity equals ordered quantity: both validation checks pass (edge: DSQTYLIV = ODQTY and DSQTY = ODQTYLIV).",
+    "fixture": {
+      "vatdef": [
+        {"VATCODE": "2", "VATRATE": "7.70", "VATDESC": "Reduced rate", "VATDEL": ""}
+      ],
+      "order": {"ORID": 60715, "ORYEAR": 2026, "ORCUID": 1002},
+      "detord": [
+        {"ODORID": 60715, "ODLINE": 2, "ODARID": "000004", "ODQTY": 6, "ODQTYLIV": 6, "ODPRICE": "6.25", "ODTOT": "37.50", "ODTOTVAT": "37.50"}
+      ],
+      "article": [{"ARID": "000004", "ARVATCD": "2"}]
+    },
+    "user_input": {
+      "panel": 2,
+      "DSQTY":    6,
+      "DSQTYLIV": 6,
+      "DSPRICE":  "6.25",
+      "key": "Enter"
+    },
+    "expected": {
+      "indicators": {
+        "ErrQtyLiv": false,
+        "ErrQty":    false
+      },
+      "ODTOT":    "37.50",
+      "vat":      "2.89",
+      "ODTOTVAT": "40.39",
+      "records_updated": [
+        {
+          "file": "DETORD1",
+          "key":  {"ODORID": 60715, "ODLINE": 2},
+          "fields": {"ODQTY": 6, "ODQTYLIV": 6, "ODPRICE": "6.25", "ODTOT": "37.50", "ODTOTVAT": "40.39"}
+        }
+      ]
+    },
+    "derivation": "R10: DSQTYLIV(6) ≤ ODQTY stored(6) → OK (boundary passes). R11: DSQTY(6) ≥ ODQTYLIV stored(6) → OK. R12: ODTOT = 6 × 6.25 = 37.50. R13: ClcVAT('2', 37.50): VATRATE=7.70. 3750 × 770 = 2,887,500; /10,000 = 288.75 (exact 2-decimal product). 288.75 / 100 = 2.8875 → Packed(11:4) = 2.8875. %dech(2.8875:9:2): 3rd decimal = 7 ≥ 5, round up: 2.88 → 2.89. ODTOTVAT = 37.50 + 2.89 = 40.39."
+  }
+]
