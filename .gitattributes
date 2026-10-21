@@ -1,0 +1,3 @@
+# Every agent appends to this index when it hands over a file. When two branches both
+# added lines, keep both sides instead of reporting a conflict.
+.agent-studio/artifacts.jsonl merge=union
